@@ -101,11 +101,7 @@ ucsbece154a_alu alu (
 
 assign WriteData_o = B;
 
-/*ucsbece154a_controller controller (
-	.op_i(op_o),
-	.funct3_i(funct3_o),
-	.funct7_i(funct7_o)
-);*/
+
 
 
 
