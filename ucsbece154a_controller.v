@@ -116,7 +116,7 @@ module ucsbece154a_controller (
         state_ExecuteI:        state_next = 4'b0111;  
         state_JAL:             state_next = 4'b0111;  
         state_BEQ:             state_next = 4'b0000;  
-        state_LUI:             state_next = 4'b0000; //add this   aluwb?  not aluwb same source registers as execute i then just go to memWB and write it back to the reg
+        state_LUI:             state_next = 4'b0000; 
         default:               state_next = 4'bxxxx;
      endcase
    end
@@ -147,7 +147,7 @@ module ucsbece154a_controller (
         state_ExecuteI:  controls_next = 14'b0_0_0_0_0_10_01_0_xx_10;   
         state_JAL:       controls_next = 14'b1_0_0_0_0_01_10_0_00_00; 
         state_BEQ:       controls_next = 14'b0_1_0_0_0_10_00_0_00_01; 
-        state_LUI:       controls_next = 14'b0_0_0_0_1_10_01_0_11_10; //add this is ResSRC 11 or xx because it needs to go to aluwb to get written to the register but it doesnt need to get the result immediately like jal or beq but it has a different result src so does it not go to aluwb is it considered a load so it takes 5 cycles does it go s0,s1,s2,s7,s0
+        state_LUI:       controls_next = 14'b0_0_0_0_1_10_01_0_11_10; 
 	default:         controls_next = 14'bx_x_x_x_x_xx_xx_x_xx_xx;
    endcase
  end
