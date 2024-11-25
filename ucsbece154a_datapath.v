@@ -41,7 +41,7 @@ wire [31:0] ALUResult;
 wire [31:0] ImmExtended;  // Sign-extended immediate value
 
 // Register File
-ucsbece154a_rf rf (
+ucsbece154a_rf (
     .clk(clk),
     .reset(reset),
     .RegWrite_i(RegWrite_i),
