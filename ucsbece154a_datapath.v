@@ -80,11 +80,11 @@ ucsbece154a_rf rf (
 	.a1_i(a1),
 	.a2_i(a2),
 	.a3_i(a3),
-	.rd1_o(rd1), //bus connected to internal register becomes instantiated with internal reg
+	.rd1_o(rd1), 
 	.rd2_o(rd2),
 	.we3_i(RegWrite_i),
-	.wd3_i(Result) //result depends on ResultSRC
-	//reset goes outside
+	.wd3_i(Result) 
+	
 	
     /*FILL*/
 );
@@ -107,17 +107,7 @@ assign WriteData_o = B;
 	.funct7_i(funct7_o)
 );*/
 
-// Extend unit block
-   /* FILL */
 
-// Muxes
-//PC Mux
-/*always @* begin
-case(AdrSrc_i)
-	1'b0: Adr_o = PC;
-	1'b1: Adr_o = Result;
-endcase
-end*/
 
 
 
@@ -161,18 +151,5 @@ case(ResultSrc_i)
 endcase
 end
 
-/*always @* begin
-case(AdrSrc_i)
-	0: Adr_o = PC;
-	1: Adr_o = Result;
-endcase
-end*/
-
-
-
-//assign Adr_o = AdrR; 
-//if i do Adr_o = PC etc then i cant cuz its a wire
-   /* FILL */
- 
 
 endmodule
