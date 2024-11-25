@@ -1,171 +1,174 @@
-// ucsbece154a_controller.v
+// ucsbece154a_datapath.v
 // All Rights Reserved
 // Copyright (c) 2023 UCSB ECE
 // Distribution Prohibited
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// TO DO: Replace all `z` values with the correct values  
+// TO DO: Add mising code below  
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-module ucsbece154a_controller (
+module ucsbece154a_datapath (
     input               clk, reset,
-    input         [6:0] op_i, 
-    input         [2:0] funct3_i,
-    input               funct7_i,
-    input 	        zero_i,
-    output wire         PCWrite_o,
-    output reg          MemWrite_o,    
-    output reg          IRWrite_o,
-    output reg          RegWrite_o,
-    output reg    [1:0] ALUSrcA_o,
-    output reg          AdrSrc_o,
-    output reg    [1:0] ResultSrc_o,
-    output reg    [1:0] ALUSrcB_o,
-    output reg    [2:0] ALUControl_o,
-    output reg    [2:0] ImmSrc_o
+    input               PCEn_i,
+    input         [1:0] ALUSrcA_i,
+    input         [1:0] ALUSrcB_i,
+    input               RegWrite_i,
+    input               AdrSrc_i,
+    input               IRWrite_i,
+    input         [1:0] ResultSrc_i,
+    input         [2:0] ALUControl_i,
+    input         [2:0] ImmSrc_i,
+    output  wire        zero_o,
+    output  wire [31:0] Adr_o,                       
+    output  wire [31:0] WriteData_o,                    
+    input        [31:0] ReadData_i,
+    output  wire [6:0]  op_o,
+    output  wire [2:0]  funct3_o,
+    output  wire        funct7_o
+);
+
+`include "ucsbece154a_defines.vh"
+
+// Internal registers
+
+reg [31:0] PC, OldPC, Instr, Data, A, B, ALUout;
+
+// Buses connected to internal registers
+reg [31:0] Result;
+wire [4:0] a1 = Instr[19:15];
+wire [4:0] a2 = Instr[24:20];
+wire [4:0] a3 = Instr[11:7];
+wire [31:0] rd1, rd2;
+wire [31:0] ALUResult;
+
+reg [31:0] SrcA;
+reg [31:0] SrcB;
+reg [31:0] ImmExt;
+//reg [31:0] AdrR;
+
+assign op_o = Instr[6:0];
+assign funct3_o = Instr[14:12];
+assign funct7_o = Instr[30];
+// Update for all internal registers
+
+always @(posedge clk) begin
+    if (reset) begin
+        PC <= pc_start;
+        OldPC <= {32{1'bx}};
+        Instr <= {32{1'bx}};
+        Data <= {32{1'bx}};
+        A <= {32{1'bx}};
+        B <= {32{1'bx}};
+        ALUout <= {32{1'bx}};
+    end else begin
+        if (PCEn_i) PC <= Result; // PC becomes Result if PCEn = 1
+        if (IRWrite_i) OldPC <= PC;
+        if (IRWrite_i) Instr <= ReadData_i;
+        Data <= ReadData_i;
+        A <= rd1;
+        B <= rd2;
+        ALUout <= ALUResult;
+    end
+end
+
+assign Adr_o = (AdrSrc_i) ? Result : PC;
+
+
+// **PUT THE REST OF YOUR CODE HERE**
+ucsbece154a_rf rf (
+	.clk(clk),
+	.a1_i(a1),
+	.a2_i(a2),
+	.a3_i(a3),
+	.rd1_o(rd1), /
+	.rd2_o(rd2),
+	.we3_i(RegWrite_i),
+	.wd3_i(Result) 
+	//reset goes outside
+	
+    /*FILL*/
 );
 
 
- `include "ucsbece154a_defines.vh"
+ucsbece154a_alu alu (
+    /*FILL*/
+	.a_i(SrcA),
+	.b_i(SrcB),
+	.alucontrol_i(ALUControl_i),
+	.result_o(ALUResult),
+	.zero_o(zero_o)
+);
 
-// **********   Extend unit    *********
- always @ * begin
-   case (op_i)
-	instr_lw_op:        ImmSrc_o = 3'b000;       
-	instr_sw_op:        ImmSrc_o = 3'b001; 
-	instr_Rtype_op:     ImmSrc_o = 3'bxxx;  
-	instr_beq_op:       ImmSrc_o = 3'b010;  
-	instr_ItypeALU_op:  ImmSrc_o = 3'b000; 
-	instr_jal_op:       ImmSrc_o = 3'b011; 
-        instr_lui_op:       ImmSrc_o = 3'b100;  
-	default: 	    ImmSrc_o = 3'bxxx; 
-   endcase
- end
+assign WriteData_o = B;
 
+/*ucsbece154a_controller controller (
+	.op_i(op_o),
+	.funct3_i(funct3_o),
+	.funct7_i(funct7_o)
+);*/
 
-// **********  ALU Control  *********
- reg  [1:0] ALUOp;    // these are FFs updated each cycle 
- wire RtypeSub = funct7_i & op_i[5];
+// Extend unit block
+   /* FILL */
 
- always @ * begin
-    case(ALUOp)
-       ALUop_mem:                 ALUControl_o = ALUcontrol_add;
-       ALUop_beq:                 ALUControl_o = ALUcontrol_sub;
-       ALUop_other: 
-         case(funct3_i) 
-           instr_addsub_funct3: begin
-                 if(RtypeSub)     ALUControl_o = ALUcontrol_sub;
-                 else             ALUControl_o = ALUcontrol_add;  
-           end
-           instr_slt_funct3:      ALUControl_o = ALUcontrol_slt;  
-           instr_or_funct3:       ALUControl_o = ALUcontrol_or;  
-           instr_and_funct3:      ALUControl_o = ALUcontrol_and;  
-           default:               ALUControl_o = 3'bxxx;
-         endcase
-    default:                      ALUControl_o = 3'bxxx;
-   endcase
- end
+// Muxes
+//PC Mux
+/*always @* begin
+case(AdrSrc_i)
+	1'b0: Adr_o = PC;
+	1'b1: Adr_o = Result;
+endcase
+end*/
 
 
 
-// **********  Generating PC Write  *********
- reg Branch, PCUpdate;   // these are FFs updated each cycle 
+always @* begin    
+case(ImmSrc_i)
+        imm_Itype: ImmExt = {{20{Instr[31]}}, Instr[31:20]};
+        imm_Stype: ImmExt = {{20{Instr[31]}}, Instr[31:25], Instr[11:7]};
+        imm_Btype: ImmExt = {{20{Instr[31]}}, Instr[7], Instr[30:25], Instr[11:8], 1'b0};
+        imm_Jtype: ImmExt = {{12{Instr[31]}}, Instr[19:12], Instr[20], Instr[30:21], 1'b0};
+        imm_Utype: ImmExt = {Instr[31:12], 12'b0};
+        default:  ImmExt = 32'bx;
+endcase
+end
 
- assign PCWrite_o = Branch & zero_i | PCUpdate; 
+//SRCA mux
+always @* begin 
+case (ALUSrcA_i)
+	ALUSrcA_pc: SrcA = PC;
+	ALUSrcA_oldpc: SrcA = OldPC;
+	ALUSrcA_reg: SrcA = rd1; //A
+	default: SrcA = 32'bx;
+endcase
+end
+//SRCB Mux
+always @* begin
+case (ALUSrcB_i)
+	ALUSrcB_reg: SrcB = rd2; //B
+	ALUSrcB_imm: SrcB = ImmExt;
+	ALUSrcB_4: SrcB = 32'd4;
+	default: SrcB = 32'bx;
+endcase
+end
 
+//Result mux
+always @* begin
+case(ResultSrc_i)
+      	ResultSrc_aluout: Result = ALUout;
+      	ResultSrc_data: Result = ReadData_i; //data
+      	ResultSrc_aluresult: Result = ALUResult;
+      	ResultSrc_lui: Result = ImmExt;
+endcase
+end
 
-// ******************************************
-// *********  Main FSM  *********************
-// ******************************************
+/*always @* begin
+case(AdrSrc_i)
+	0: Adr_o = PC;
+	1: Adr_o = Result;
+endcase
+end*/
 
-
-// *********  FSM state transistion  ****** 
- reg [3:0] state; //  FSM FFs encoding the state 
- reg [3:0] state_next;
-
- always @ * begin
-    if (reset) begin
-                               state_next = 4'b0000;  
-    end else begin             
-      case (state) 
-        state_Fetch:           state_next = 4'b0001;  
-        state_Decode: begin
-          case (op_i) 
-            instr_lw_op:       state_next = 4'b0010;  
-            instr_sw_op:       state_next = 4'b0010;  
-            instr_Rtype_op:    state_next = 4'b0110;  
-            instr_beq_op:      state_next = 4'b1010;  
-            instr_ItypeALU_op: state_next = 4'b1000;  
-            instr_lui_op:      state_next = 4'b1011;   
-            instr_jal_op:      state_next = 4'b1001;  
-            default:           state_next = 4'bxxxx;
-          endcase
-        end
-        state_MemAdr: begin 
-          case (op_i)
-            instr_lw_op:       state_next = 4'b0011;  
-            instr_sw_op:       state_next = 4'b0101;  
-            default:           state_next = 4'bxxxx;
-          endcase
-        end
-        state_MemRead:         state_next = 4'b0100;  
-        state_MemWB:           state_next = 4'b0000;  
-        state_MemWrite:        state_next = 4'b0000;  
-        state_ExecuteR:        state_next = 4'b0111;  
-        state_ALUWB:           state_next = 4'b0000;  
-        state_ExecuteI:        state_next = 4'b0111;  
-        state_JAL:             state_next = 4'b0111;  
-        state_BEQ:             state_next = 4'b0000;  
-        state_LUI:             state_next = 4'b0000; 
-        default:               state_next = 4'bxxxx;
-     endcase
-   end
- end
-
-// *******  Control signal generation  ********
-
- reg [13:0] controls_next;
- wire       PCUpdate_next, Branch_next, MemWrite_next, IRWrite_next, RegWrite_next, AdrSrc_next;
- wire [1:0] ALUSrcA_next, ALUSrcB_next, ResultSrc_next, ALUOp_next;
-
- assign {
-	PCUpdate_next, Branch_next, MemWrite_next, IRWrite_next, RegWrite_next,
-        ALUSrcA_next, ALUSrcB_next, AdrSrc_next, ResultSrc_next, ALUOp_next
-	} = controls_next;
-
- always @ * begin
-   case (state_next)
-//if i dont use alu in that stage is it xx?
-	state_Fetch:     controls_next = 14'b1_0_0_1_0_00_10_0_10_00;      
-	state_Decode:    controls_next = 14'b0_0_0_0_0_01_01_0_xx_00; 
-	state_MemAdr:    controls_next = 14'b0_0_0_0_0_10_01_0_xx_00; 
-	state_MemRead:   controls_next = 14'b0_0_0_0_0_xx_xx_1_00_xx;  
-	state_MemWB:     controls_next = 14'b0_0_0_0_1_xx_xx_0_01_xx; 
-        state_MemWrite:  controls_next = 14'b0_0_1_0_0_xx_xx_1_00_xx; 
-        state_ExecuteR:  controls_next = 14'b0_0_0_0_0_10_00_0_xx_10; 
-        state_ALUWB:     controls_next = 14'b0_0_0_0_1_xx_xx_0_00_xx;     
-        state_ExecuteI:  controls_next = 14'b0_0_0_0_0_10_01_0_xx_10;   
-        state_JAL:       controls_next = 14'b1_0_0_0_0_01_10_0_00_00; 
-        state_BEQ:       controls_next = 14'b0_1_0_0_0_10_00_0_00_01; 
-        state_LUI:       controls_next = 14'b0_0_0_0_1_10_01_0_11_10;
-	default:         controls_next = 14'bx_x_x_x_x_xx_xx_x_xx_xx;
-   endcase
- end
-
- // *******  Updating control and main FSM FFs  ********
- always @(posedge clk) begin
-    state <= state_next;
-    PCUpdate <= PCUpdate_next;
-    Branch <= Branch_next;
-    MemWrite_o <= MemWrite_next;
-    IRWrite_o <= IRWrite_next;
-    RegWrite_o <= RegWrite_next;
-    ALUSrcA_o <= ALUSrcA_next;
-    ALUSrcB_o <= ALUSrcB_next;
-    AdrSrc_o <= AdrSrc_next;
-    ResultSrc_o <= ResultSrc_next;
-    ALUOp <= ALUOp_next;
-  end
-
+   /* FILL */
+ 
 
 endmodule
