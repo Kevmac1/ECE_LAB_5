@@ -4,63 +4,175 @@
 // Distribution Prohibited
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// TO DO: Add missing code below  
+// TO DO: Add mising code below  
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 module ucsbece154a_datapath (
-    input clk, reset,
-    input [6:0] op_i, 
-    input [2:0] funct3_i,
-    input funct7_i,
-    input zero_i,
-    input [31:0] imm_i,        // Immediate input
-    input [31:0] ALU_result_i, // ALU result
-    input [31:0] read_data_i,  // Data from memory (for load)
-    output [31:0] ALU_A_o,     // ALU input A
-    output [31:0] ALU_B_o,     // ALU input B
-    output [31:0] result_o,    // Result (either from ALU or memory)
-    output [31:0] PC_o,        // Program counter output
-    output [31:0] MemAddr_o,   // Memory address output
-    output MemWrite_o,         // Memory write enable
-    output IRWrite_o,          // Instruction register write enable
-    output RegWrite_o,         // Register write enable
-    output PCWrite_o           // Program counter write enable
+    input               clk, reset,
+    input               PCEn_i,
+    input         [1:0] ALUSrcA_i,
+    input         [1:0] ALUSrcB_i,
+    input               RegWrite_i,
+    input               AdrSrc_i,
+    input               IRWrite_i,
+    input         [1:0] ResultSrc_i,
+    input         [2:0] ALUControl_i,
+    input         [2:0] ImmSrc_i,
+    output  wire        zero_o,
+    output  wire [31:0] Adr_o,                       
+    output  wire [31:0] WriteData_o,                    
+    input        [31:0] ReadData_i,
+    output  wire [6:0]  op_o,
+    output  wire [2:0]  funct3_o,
+    output  wire        funct7_o
 );
 
-    // Registers
-    reg [31:0] PC;             // Program counter
-    reg [31:0] IR;             // Instruction register
-    reg [31:0] RegFile [31:0]; // Register file
+`include "ucsbece154a_defines.vh"
 
-    // MUXes for selecting ALU inputs
-    assign ALU_A_o = RegFile[IR[19:15]];       // rs1
-    assign ALU_B_o = (ALUSrcB_o) ? imm_i : RegFile[IR[24:20]]; // rs2 or imm
+// Internal registers
 
-    // ALU operation
-    wire [31:0] ALU_result;
-    ALU alu(.A(ALU_A_o), .B(ALU_B_o), .ALUOp(ALUControl_o), .result(ALU_result));
+reg [31:0] PC, OldPC, Instr, Data, A, B, ALUout;
 
-    // Memory operation
-    assign MemAddr_o = ALU_result;       // Address from ALU result
-    assign MemWrite_o = MemWrite_o;      // From controller
+// Buses connected to internal registers
+reg [31:0] Result;
+wire [4:0] a1 = Instr[19:15];
+wire [4:0] a2 = Instr[24:20];
+wire [4:0] a3 = Instr[11:7];
+wire [31:0] rd1, rd2;
+wire [31:0] ALUResult;
 
-    // Write back to register file
-    assign result_o = (ResultSrc_o == 2'b00) ? ALU_result : read_data_i;
+reg [31:0] SrcA;
+reg [31:0] SrcB;
+reg [31:0] ImmExt;
+//reg [31:0] AdrR;
 
-    // Program counter control
-    assign PCWrite_o = (Branch_o && zero_i) || (PCUpdate); // PCWrite signal
+assign op_o = Instr[6:0];
+assign funct3_o = Instr[14:12];
+assign funct7_o = Instr[30];
+// Update for all internal registers
 
-    always @(posedge clk or posedge reset) begin
-        if (reset) begin
-            PC <= 32'h0;
-            IR <= 32'h0;
-        end else begin
-            if (IRWrite_o)
-                IR <= read_data_i; // Load instruction into IR
-            if (PCWrite_o)
-                PC <= result_o;  // Update program counter
-            if (RegWrite_o)
-                RegFile[IR[11:7]] <= result_o; // Write result to register file
-        end
+always @(posedge clk) begin
+    if (reset) begin
+        PC <= pc_start;
+        OldPC <= {32{1'bx}};
+        Instr <= {32{1'bx}};
+        Data <= {32{1'bx}};
+        A <= {32{1'bx}};
+        B <= {32{1'bx}};
+        ALUout <= {32{1'bx}};
+    end else begin
+        if (PCEn_i) PC <= Result; // PC becomes Result if PCEn = 1
+        if (IRWrite_i) OldPC <= PC;
+        if (IRWrite_i) Instr <= ReadData_i;
+        Data <= ReadData_i;
+        A <= rd1;
+        B <= rd2;
+        ALUout <= ALUResult;
     end
+end
+
+assign Adr_o = (AdrSrc_i) ? Result : PC;
+
+
+// **PUT THE REST OF YOUR CODE HERE**
+ucsbece154a_rf rf (
+	.clk(clk),
+	.a1_i(a1),
+	.a2_i(a2),
+	.a3_i(a3),
+	.rd1_o(rd1), //bus connected to internal register becomes instantiated with internal reg
+	.rd2_o(rd2),
+	.we3_i(RegWrite_i),
+	.wd3_i(Result) //result depends on ResultSRC
+	//reset goes outside
+	
+    /*FILL*/
+);
+
+
+ucsbece154a_alu alu (
+    /*FILL*/
+	.a_i(SrcA),
+	.b_i(SrcB),
+	.alucontrol_i(ALUControl_i),
+	.result_o(ALUResult),
+	.zero_o(zero_o)
+);
+
+assign WriteData_o = B;
+
+/*ucsbece154a_controller controller (
+	.op_i(op_o),
+	.funct3_i(funct3_o),
+	.funct7_i(funct7_o)
+);*/
+
+// Extend unit block
+   /* FILL */
+
+// Muxes
+//PC Mux
+/*always @* begin
+case(AdrSrc_i)
+	1'b0: Adr_o = PC;
+	1'b1: Adr_o = Result;
+endcase
+end*/
+
+
+
+always @* begin    
+case(ImmSrc_i)
+        imm_Itype: ImmExt = {{20{Instr[31]}}, Instr[31:20]};
+        imm_Stype: ImmExt = {{20{Instr[31]}}, Instr[31:25], Instr[11:7]};
+        imm_Btype: ImmExt = {{20{Instr[31]}}, Instr[7], Instr[30:25], Instr[11:8], 1'b0};
+        imm_Jtype: ImmExt = {{12{Instr[31]}}, Instr[19:12], Instr[20], Instr[30:21], 1'b0};
+        imm_Utype: ImmExt = {Instr[31:12], 12'b0};
+        default:  ImmExt = 32'bx;
+endcase
+end
+
+//SRCA mux
+always @* begin 
+case (ALUSrcA_i)
+	ALUSrcA_pc: SrcA = PC;
+	ALUSrcA_oldpc: SrcA = OldPC;
+	ALUSrcA_reg: SrcA = rd1; //A
+	default: SrcA = 32'bx;
+endcase
+end
+//SRCB Mux
+always @* begin
+case (ALUSrcB_i)
+	ALUSrcB_reg: SrcB = rd2; //B
+	ALUSrcB_imm: SrcB = ImmExt;
+	ALUSrcB_4: SrcB = 32'd4;
+	default: SrcB = 32'bx;
+endcase
+end
+
+//Result mux
+always @* begin
+case(ResultSrc_i)
+      	ResultSrc_aluout: Result = ALUout;
+      	ResultSrc_data: Result = ReadData_i; //data
+      	ResultSrc_aluresult: Result = ALUResult;
+      	ResultSrc_lui: Result = ImmExt;
+endcase
+end
+
+/*always @* begin
+case(AdrSrc_i)
+	0: Adr_o = PC;
+	1: Adr_o = Result;
+endcase
+end*/
+
+
+
+//assign Adr_o = AdrR; 
+//if i do Adr_o = PC etc then i cant cuz its a wire
+   /* FILL */
+ 
+
 endmodule
