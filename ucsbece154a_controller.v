@@ -8,7 +8,7 @@ module ucsbece154a_controller (
     input         [6:0] op_i, 
     input         [2:0] funct3_i,
     input               funct7_i,
-    input 	        zero_i,
+    input               zero_i,
     output wire         PCWrite_o,
     output reg          MemWrite_o,    
     output reg          IRWrite_o,
@@ -21,100 +21,87 @@ module ucsbece154a_controller (
     output reg    [2:0] ImmSrc_o
 );
 
-`include "ucsbece154a_defines.vh"
+ `include "ucsbece154a_defines.vh"
 
-// **********   Extend unit    *********
+// **********   Immediate Source Selection (ImmSrc_o)  *********
 always @ * begin
-    case (op_i)
-        instr_lw_op:        ImmSrc_o = 3'b000;       
-        instr_sw_op:        ImmSrc_o = 3'b001; 
-        instr_Rtype_op:     ImmSrc_o = 3'b010;  
-        instr_beq_op:       ImmSrc_o = 3'b010;  
-        instr_ItypeALU_op:  ImmSrc_o = 3'b000; 
-        instr_jal_op:       ImmSrc_o = 3'b011; 
-        instr_lui_op:       ImmSrc_o = 3'b100;  
-        default: 	        ImmSrc_o = 3'bxxx; 
-    endcase
+   case (op_i)
+        instr_lw_op:        ImmSrc_o = 3'b000;       // Load instruction
+        instr_sw_op:        ImmSrc_o = 3'b001;       // Store instruction
+        instr_Rtype_op:     ImmSrc_o = 3'bxxx;       // R-type: No immediate value
+        instr_beq_op:       ImmSrc_o = 3'b010;       // Branch instruction (BEQ)
+        instr_ItypeALU_op:  ImmSrc_o = 3'b000;       // Immediate ALU (Add, Sub, etc.)
+        instr_jal_op:       ImmSrc_o = 3'b011;       // JAL instruction
+        instr_lui_op:       ImmSrc_o = 3'b100;       // LUI (Load Upper Immediate)
+        default:            ImmSrc_o = 3'bxxx;       // Default case: Invalid
+   endcase
 end
 
-// **********  ALU Control  *********
-reg  [1:0] ALUOp;    // these are FFs updated each cycle 
-wire RtypeSub = funct7_i & op_i[5];
+// ********** ALU Control Logic *********
+reg  [1:0] ALUOp;    // ALU Operation (ADD, SUB, SLT, etc.)
+wire RtypeSub = funct7_i & op_i[5];  // Detects subtraction for R-type instructions
 
 always @ * begin
     case(ALUOp)
-        ALUop_mem:                  ALUControl_o = ALUcontrol_add;
-        ALUop_beq:                  ALUControl_o = ALUcontrol_sub;
-        ALUop_other: 
-            case(funct3_i) 
-                instr_addsub_funct3: begin
-                    if (RtypeSub)    ALUControl_o = ALUcontrol_sub;
-                    else             ALUControl_o = ALUcontrol_add;  
-                end
-                instr_slt_funct3:     ALUControl_o = ALUcontrol_slt;  
-                instr_or_funct3:      ALUControl_o = ALUcontrol_or;  
-                instr_and_funct3:     ALUControl_o = ALUcontrol_and;  
-                default:              ALUControl_o = 3'bxxx;
-            endcase
-        default:                      ALUControl_o = 3'bxxx;
+       ALUop_mem:           ALUControl_o = ALUcontrol_add;   // Memory-related operations (Add)
+       ALUop_beq:           ALUControl_o = ALUcontrol_sub;   // Branch equal (BEQ)
+       ALUop_other: 
+         case(funct3_i) 
+           instr_addsub_funct3: 
+               ALUControl_o = (RtypeSub) ? ALUcontrol_sub : ALUcontrol_add;  // Handle ADD/SUB for R-type
+           instr_slt_funct3:    ALUControl_o = ALUcontrol_slt;  // Set Less Than
+           instr_or_funct3:     ALUControl_o = ALUcontrol_or;   // OR operation
+           instr_and_funct3:    ALUControl_o = ALUcontrol_and;  // AND operation
+           default:             ALUControl_o = 3'bxxx;   // Default: Invalid instruction
+         endcase
+    default:               ALUControl_o = 3'bxxx;   // Default: Invalid ALUOp
     endcase
 end
 
-// **********  Generating PC Write  *********
-reg Branch, PCUpdate;   // these are FFs updated each cycle 
+// ********** PC Write Logic *********
+reg Branch, PCUpdate;  // Flags for controlling PC write
 
-assign PCWrite_o = Branch & zero_i | PCUpdate; 
+assign PCWrite_o = (Branch & zero_i) | PCUpdate;  // PC is written based on Branch condition or update signal
 
-// ******************************************
-// *********  Main FSM  *********************
-// ******************************************
+// ********** FSM State Transitions *********
+reg [3:0] state;    // FSM current state
+reg [3:0] state_next;  // FSM next state
 
-// *********  FSM state transistion  ****** 
-reg [3:0] state; //  FSM FFs encoding the state 
-reg [3:0] state_next;
-
+// State machine for FSM state transitions
 always @ * begin
     if (reset) begin
-        state_next = state_Fetch;  
+        state_next = 4'bzzzz;   // Reset state
     end else begin             
-        case (state) 
-            state_Fetch:           state_next = state_Decode;  
+        case (state)
+            state_Fetch:           state_next = 4'bzzzz;  // Fetch state transition
             state_Decode: begin
-                case (op_i) 
-                    instr_lw_op:       state_next = state_MemAdr;  
-                    instr_sw_op:       state_next = state_MemAdr;  
-                    instr_Rtype_op:    state_next = state_ExecuteR;  
-                    instr_beq_op:      state_next = state_BEQ;  
-                    instr_ItypeALU_op: state_next = state_ExecuteI;  
-                    instr_lui_op:      state_next = state_LUI;  
-                    instr_jal_op:      state_next = state_JAL;  
-                    default:           state_next = state_Fetch;
+                case (op_i)
+                    instr_lw_op:       state_next = 4'bzzzz;  
+                    instr_sw_op:       state_next = 4'bzzzz;  
+                    instr_Rtype_op:    state_next = 4'bzzzz;  
+                    instr_beq_op:      state_next = 4'bzzzz;  
+                    instr_ItypeALU_op: state_next = 4'bzzzz;  
+                    instr_lui_op:      state_next = 4'bzzzz;  
+                    instr_jal_op:      state_next = 4'bzzzz;  
+                    default:           state_next = 4'bxxxx;
                 endcase
             end
             state_MemAdr: begin 
                 case (op_i)
-                    instr_lw_op:       state_next = state_MemRead;  
-                    instr_sw_op:       state_next = state_MemWrite;  
-                    default:           state_next = state_Fetch;
+                    instr_lw_op:       state_next = 4'bzzzz;  
+                    instr_sw_op:       state_next = 4'bzzzz;  
+                    default:           state_next = 4'bxxxx;
                 endcase
             end
-            state_MemRead:           state_next = state_MemWB;  
-            state_MemWB:             state_next = state_Fetch;  
-            state_MemWrite:          state_next = state_Fetch;  
-            state_ExecuteR:          state_next = state_ALUWB;  
-            state_ALUWB:             state_next = state_Fetch;  
-            state_ExecuteI:          state_next = state_ALUWB;  
-            state_JAL:               state_next = state_Fetch;  
-            state_BEQ:               state_next = state_Fetch;  
-            state_LUI:               state_next = state_Fetch;     
-            default:                 state_next = state_Fetch;
+            default:               state_next = 4'bxxxx;
         endcase
     end
 end
 
-// *******  Control signal generation  ********
+// ********** Control Signal Generation *********
+reg [13:0] controls_next;  // Next value for control signals
 
-reg [13:0] controls_next;
+// Assign next control signals
 wire       PCUpdate_next, Branch_next, MemWrite_next, IRWrite_next, RegWrite_next, AdrSrc_next;
 wire [1:0] ALUSrcA_next, ALUSrcB_next, ResultSrc_next, ALUOp_next;
 
@@ -123,37 +110,10 @@ assign {
     ALUSrcA_next, ALUSrcB_next, AdrSrc_next, ResultSrc_next, ALUOp_next
 } = controls_next;
 
+// Control signal logic for each state
 always @ * begin
-    case (state_next)
-        state_Fetch:     controls_next = 14'b1_0_0_1_0_00_01_0_00_00;      
-        state_Decode:    controls_next = 14'b0_0_0_0_0_00_00_0_00_00; 
-        state_MemAdr:    controls_next = 14'b0_0_0_0_0_00_10_1_00_00; 
-        state_MemRead:   controls_next = 14'b0_0_0_0_0_00_10_1_01_00;  
-        state_MemWB:     controls_next = 14'b0_0_0_0_1_00_00_0_00_00; 
-        state_MemWrite:  controls_next = 14'b0_0_1_0_0_00_10_1_00_00; 
-        state_ExecuteR:  controls_next = 14'b0_0_0_0_0_10_00_0_00_10; 
-        state_ALUWB:     controls_next = 14'b0_0_0_0_1_00_00_0_00_00;     
-        state_ExecuteI:  controls_next = 14'b0_0_0_0_0_10_00_0_00_11;   
-        state_JAL:       controls_next = 14'b1_0_0_0_1_00_00_0_10_00; 
-        state_BEQ:       controls_next = 14'b0_1_0_0_0_01_00_0_00_01; 
-        state_LUI:       controls_next = 14'b0_0_0_0_1_00_00_0_11_00; 
-        default:         controls_next = 14'bx_x_x_x_x_xx_xx_x_xx_xx;
-    endcase
-end
+    case (
 
-// *******  Updating control and main FSM FFs  ********
-always @(posedge clk) begin
-    state <= state_next;
-    PCUpdate <= PCUpdate_next;
-    Branch <= Branch_next;
-    MemWrite_o <= MemWrite_next;
-    IRWrite_o <= IRWrite_next;
-    RegWrite_o <= RegWrite_next;
-    ALUSrcA_o <= ALUSrcA_next;
-    ALUSrcB_o <= ALUSrcB_next;
-    AdrSrc_o <= AdrSrc_next;
-    ResultSrc_o <= ResultSrc_next;
-    ALUOp <= ALUOp_next;
 end
 
 endmodule
