@@ -4,7 +4,7 @@
 // Distribution Prohibited
 
 module ucsbece154a_controller (
-     input [6:0] op_i,           // Opcode
+    input [6:0] op_i,           // Opcode
     input [2:0] funct3_i,       // Function code 3
     input funct7_i,             // Function code 7 (single bit)
     input zero_i,               // Zero flag (from ALU)
@@ -133,5 +133,7 @@ always @ * begin
         end
     endcase
 end
+
+endmodule
 
 endmodule
